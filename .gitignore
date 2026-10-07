@@ -1,6 +1,7 @@
 # Dependencies (Folder library Node.js)
 node_modules/
 jspm_packages/
+/data/
 
 # Environment Variables (SANGAT RAHASIA: Token Bot, API Keys, Database)
 .env

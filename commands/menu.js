@@ -1,5 +1,21 @@
 const { Composer } = require('grammy');
 const composer = new Composer();
+const startMessages = new Map();
+
+const startMessageKey = (ctx) => `${ctx.chat.id}:${ctx.from.id}`;
+
+const deleteStartMessage = async (ctx) => {
+    const key = startMessageKey(ctx);
+    const messageId = startMessages.get(key);
+    if (!messageId) return;
+
+    try {
+        await ctx.api.deleteMessage(ctx.chat.id, messageId);
+        startMessages.delete(key);
+    } catch (error) {
+        console.error(`Gagal menghapus pesan /start (${ctx.chat.id}/${messageId}):`, error);
+    }
+};
 
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
@@ -31,6 +47,8 @@ const showProfile = async (ctx) => {
 };
 
 composer.command('menu', async (ctx) => {
+    await deleteStartMessage(ctx);
+
     const isOwner = ctx.from.id === ctx.ownerId;
     const isPrivate = ctx.chat.type === 'private';
     const keyboard = [[{ text: '👤 Profil Saya', callback_data: 'profile' }]];
@@ -44,7 +62,13 @@ composer.command('menu', async (ctx) => {
         'Pilih fitur yang ingin digunakan:\n' +
         '/start - Mulai bot\n' +
         '/download - Download video (memerlukan izin)\n' +
-        '/rules - Lihat peraturan grup',
+        '/rules - Lihat rules grup\n' +
+        '/rules edit - Ubah rules (admin)\n' +
+        '/rules delete - Hapus rules (admin)\n' +
+        '/notes nama_note - Lihat note\n' +
+        '/notes edit nama_note - Buat/ubah note (admin)\n' +
+        '/notes delete nama_note - Hapus note (admin)\n' +
+        '/cancel - Batalkan proses edit',
         { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
     );
 });
@@ -56,6 +80,8 @@ composer.callbackQuery('profile', async (ctx) => {
 });
 
 composer.command('start', async (ctx) => {
+    await deleteStartMessage(ctx);
+
     const isOwner = ctx.from.id === ctx.ownerId;
     const userName = ctx.from.username ? `@${ctx.from.username}` : ctx.from.first_name;
     const state = require('./state');
@@ -72,10 +98,11 @@ composer.command('start', async (ctx) => {
         keyboard.push([{ text: '🔐 Menu Owner', callback_data: 'owner_menu' }]);
     }
 
-    await ctx.reply(message, {
+    const sentMessage = await ctx.reply(message, {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: keyboard }
     });
+    startMessages.set(startMessageKey(ctx), sentMessage.message_id);
 });
 
 module.exports = { composer };
