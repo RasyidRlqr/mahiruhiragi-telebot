@@ -45,6 +45,36 @@ const showMenuCategory = async (ctx, text) => {
     });
 };
 
+const showDownloadMenu = async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText('<b>⬇️ Download &amp; Tautan</b>\nPilih layanan:', {
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: '🎵 TikTok', callback_data: 'menu_download_tiktok' },
+                    { text: '📸 Instagram', callback_data: 'menu_download_instagram' },
+                    { text: '📌 Pinterest', callback_data: 'menu_download_pinterest' }
+                ],
+                [{ text: '⬅️ Kembali ke Menu', callback_data: 'menu_home' }]
+            ]
+        }
+    });
+};
+
+const showDownloadService = (text) => async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: '⬅️ Kembali ke Layanan', callback_data: 'menu_download' }],
+                [{ text: '🏠 Kembali ke Menu', callback_data: 'menu_home' }]
+            ]
+        }
+    });
+};
+
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -101,9 +131,15 @@ composer.callbackQuery('menu_notes', (ctx) => showMenuCategory(
     '<b>📝 Notes</b>\n/notes - Daftar semua notes\n/get nama - Tampilkan note\n#nama - Pintasan note\n/save nama isi - Simpan note (admin)\nBalas media dengan /save nama untuk menyimpannya\n/clear nama dan /clearall - Hapus notes (admin)\n/privatenotes on|off - Atur balasan PM (admin)\n/connect di grup atau /connect ID_GRUP di PM\n/disconnect - Putuskan koneksi PM\nJika #nama tidak direspons, aktifkan Group Privacy off di BotFather atau jadikan bot admin. Alternatif: #nama@username_bot.'
 ));
 
-composer.callbackQuery('menu_download', (ctx) => showMenuCategory(
-    ctx,
-    '<b>⬇️ Download</b>\nKirim link video dengan perintah /download. Fitur ini memerlukan izin owner.'
+composer.callbackQuery('menu_download', showDownloadMenu);
+composer.callbackQuery('menu_download_tiktok', showDownloadService(
+    '<b>🎵 TikTok</b>\n/download https://www.tiktok.com/@user/video/123456\nMengambil video/foto melalui TikWM. Hanya untuk konten yang boleh Anda simpan; perlu otorisasi bot di chat.'
+));
+composer.callbackQuery('menu_download_instagram', showDownloadService(
+    '<b>📸 Instagram</b>\n/download https://www.instagram.com/reel/...\nBot membagikan tautan postingan Instagram. Unduhan otomatis belum tersedia karena endpoint SaveIG merespons HTTP 530.'
+));
+composer.callbackQuery('menu_download_pinterest', showDownloadService(
+    '<b>📌 Pinterest</b>\n/download https://i.pinimg.com/736x/...jpg\natau /download https://pin.it/...\nURL gambar langsung dikirim sebagai gambar. Link halaman Pin dibuka lalu dibagikan; bot tidak mengekstrak medianya.'
 ));
 
 composer.command('profile', showProfile);

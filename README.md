@@ -29,3 +29,12 @@ Daftar grup yang diizinkan juga disimpan di SQLite lokal dan tetap aktif setelah
 - Menjalankan `/unauth ID_CHAT` di chat pribadi untuk mencabut akses, atau `/unauth` di grup yang ingin dicabut.
 
 Grup yang diizinkan sebelum penyimpanan permanen ini ditambahkan perlu diizinkan sekali lagi setelah bot diperbarui.
+
+## Download media dan tautan
+
+Menu Download menyediakan TikTok, Instagram, dan Pinterest. Semua perintah fitur ini hanya aktif di chat yang diizinkan owner.
+
+- `/download https://...` menerima tautan HTTPS TikTok atau Instagram. TikTok diproses lewat TikWM API (`tikwm.com`); tautan pendek `vt.tiktok.com` dan `vm.tiktok.com` di-resolve dengan batas redirect yang hanya mengizinkan domain TikTok. Jika Telegram tidak dapat mengambil hasil TikTok, bot memberikan tautan media. Instagram saat ini hanya membagikan tautan postingan: endpoint SaveIG merespons HTTP 530, dan tidak ada API resmi tanpa autentikasi untuk mengunduh sembarang postingan. Bot tidak mengirim cookie atau mencoba melewati proteksi provider.
+- `/download https://i.pinimg.com/...jpg` atau `/pinterest https://i.pinimg.com/...jpg` mengambil URL gambar langsung Pinterest dan mengirimkannya ke chat. `/download https://pin.it/...` atau `/pinterest https://pin.it/...` mengikuti redirect resmi Pinterest lalu membagikan tautan halaman Pin; isi medianya tidak di-scrape. Hanya JPEG, PNG, atau WebP hingga 10 MB yang diterima untuk URL gambar langsung. Bot tidak menyimpan gambar ke disk.
+
+API resmi Instagram dan Pinterest memerlukan aplikasi, autentikasi, dan izin akun yang sesuai; keduanya bukan pengunduh umum untuk tautan publik sembarang. TikTok bergantung pada endpoint pihak ketiga; ketersediaan dan format respons dapat berubah.
