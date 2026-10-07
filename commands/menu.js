@@ -17,6 +17,34 @@ const deleteStartMessage = async (ctx) => {
     }
 };
 
+const mainMenuKeyboard = (ctx) => {
+    const keyboard = [
+        [
+            { text: '📜 Rules', callback_data: 'menu_rules' },
+            { text: '📝 Notes', callback_data: 'menu_notes' }
+        ],
+        [
+            { text: '⬇️ Download', callback_data: 'menu_download' },
+            { text: '👤 Profil', callback_data: 'profile' }
+        ]
+    ];
+
+    if (ctx.from.id === ctx.ownerId && ctx.chat.type === 'private') {
+        keyboard.push([{ text: '🔐 Menu Owner', callback_data: 'owner_menu' }]);
+    }
+    return { inline_keyboard: keyboard };
+};
+
+const showMenuCategory = async (ctx, text) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [[{ text: '⬅️ Kembali ke Menu', callback_data: 'menu_home' }]]
+        }
+    });
+};
+
 const escapeHtml = (value) => String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -49,29 +77,34 @@ const showProfile = async (ctx) => {
 composer.command('menu', async (ctx) => {
     await deleteStartMessage(ctx);
 
-    const isOwner = ctx.from.id === ctx.ownerId;
-    const isPrivate = ctx.chat.type === 'private';
-    const keyboard = [[{ text: '👤 Profil Saya', callback_data: 'profile' }]];
-
-    if (isOwner && isPrivate) {
-        keyboard.push([{ text: '🔐 Menu Owner', callback_data: 'owner_menu' }]);
-    }
-
     await ctx.reply(
-        '🤖 <b>Menu Bot Mahiru Hiragi</b>\n\n' +
-        'Pilih fitur yang ingin digunakan:\n' +
-        '/start - Mulai bot\n' +
-        '/download - Download video (memerlukan izin)\n' +
-        '/rules - Lihat rules grup\n' +
-        '/rules edit - Ubah rules (admin)\n' +
-        '/rules delete - Hapus rules (admin)\n' +
-        '/notes nama_note - Lihat note\n' +
-        '/notes edit nama_note - Buat/ubah note (admin)\n' +
-        '/notes delete nama_note - Hapus note (admin)\n' +
-        '/cancel - Batalkan proses edit',
-        { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } }
+        '🤖 <b>Menu Mahiru</b>\nPilih kategori:',
+        { parse_mode: 'HTML', reply_markup: mainMenuKeyboard(ctx) }
     );
 });
+
+composer.callbackQuery('menu_home', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText('🤖 <b>Menu Mahiru</b>\nPilih kategori:', {
+        parse_mode: 'HTML',
+        reply_markup: mainMenuKeyboard(ctx)
+    });
+});
+
+composer.callbackQuery('menu_rules', (ctx) => showMenuCategory(
+    ctx,
+    '<b>📜 Rules</b>\n/rules - Lihat rules grup\n/rules edit isi rules - Simpan langsung\n/rules edit - Lalu kirim rules baru\n/rules delete - Hapus rules (admin grup)'
+));
+
+composer.callbackQuery('menu_notes', (ctx) => showMenuCategory(
+    ctx,
+    '<b>📝 Notes</b>\n/notes - Daftar semua notes\n/get nama - Tampilkan note\n#nama - Pintasan note\n/save nama isi - Simpan note (admin)\nBalas media dengan /save nama untuk menyimpannya\n/clear nama dan /clearall - Hapus notes (admin)\n/privatenotes on|off - Atur balasan PM (admin)\n/connect di grup atau /connect ID_GRUP di PM\n/disconnect - Putuskan koneksi PM\nJika #nama tidak direspons, aktifkan Group Privacy off di BotFather atau jadikan bot admin. Alternatif: #nama@username_bot.'
+));
+
+composer.callbackQuery('menu_download', (ctx) => showMenuCategory(
+    ctx,
+    '<b>⬇️ Download</b>\nKirim link video dengan perintah /download. Fitur ini memerlukan izin owner.'
+));
 
 composer.command('profile', showProfile);
 composer.callbackQuery('profile', async (ctx) => {

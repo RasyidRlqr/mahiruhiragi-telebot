@@ -50,8 +50,8 @@ composer.command('stats', async (ctx) => {
     // Buat pesan statistik
     let statsMessage = `📊 *Statistik Bot Mahiru Hiragi* 📊\n\n`;
     statsMessage += `⏱️ **Uptime:** ${uptimeString}\n`;
-    statsMessage += `👥 **Pengguna Online:** ${state.uniqueUsers.size}\n`;
-    statsMessage += `🏠 **Grup Join:** ${state.groupJoins}\n\n`;
+    statsMessage += `👥 **Pengguna Terdata:** ${state.uniqueUsers.size}\n`;
+    statsMessage += `🏠 **Grup Terdata:** ${state.groups.size}\n\n`;
     statsMessage += `${systemInfo}\n`;
     statsMessage += `📅 **Terakhir diperbarui:** ${new Date().toLocaleString()}`;
     

@@ -14,12 +14,18 @@ const bot = new Bot(botToken || 'KOSONG');
 const commandsPath = path.join(__dirname, 'commands');
 const state = require(path.join(commandsPath, 'state'));
 const contentStore = require(path.join(commandsPath, 'contentStore'));
-const authorizedChats = new Set();
+const authorizedChats = new Set(contentStore.getAuthorizedChats().map((chat) => chat.chatId));
 const pendingOwnerActions = new Map();
 
 bot.use(async (ctx, next) => {
     ctx.ownerId = ownerIdIsValid ? ownerId : undefined;
     ctx.authorizedChats = authorizedChats;
+    if (ctx.from && !ctx.from.is_bot) {
+        state.addUser(ctx.from.id);
+        if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup')) {
+            state.addGroup(ctx.chat.id, ctx.chat.title);
+        }
+    }
     await next();
 });
 
@@ -37,7 +43,8 @@ const ownerMenuKeyboard = {
         [
             { text: '✅ Izinkan Chat', callback_data: 'owner_auth' },
             { text: '🚫 Cabut Izin', callback_data: 'owner_unauth' }
-        ]
+        ],
+        [{ text: '📋 Daftar Chat Diizinkan', callback_data: 'owner_auth_list' }]
     ]
 };
 
@@ -68,6 +75,33 @@ const showOwnerMenu = async (ctx) => {
 bot.command('ownermenu', showOwnerMenu);
 bot.callbackQuery('owner_menu', showOwnerMenu);
 
+const showAuthorizedChats = async (ctx) => {
+    if (!isOwnerInPrivateChat(ctx)) {
+        await ctx.answerCallbackQuery({ text: 'Menu ini hanya tersedia untuk owner.' });
+        return;
+    }
+
+    const chats = contentStore.getAuthorizedChats();
+    const text = chats.length
+        ? '<b>📋 Chat/Grup Diizinkan</b>\n\n' +
+          chats.map((chat) => `• ${chat.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')} (<code>${chat.chatId}</code>)`).join('\n') +
+          '\n\nCabut akses dengan /unauth ID_CHAT.'
+        : '<b>📋 Chat/Grup Diizinkan</b>\n\nBelum ada chat yang diizinkan.';
+
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: '🚫 Cabut Izin', callback_data: 'owner_unauth' }],
+                [{ text: '⬅️ Kembali ke Menu Owner', callback_data: 'owner_menu' }]
+            ]
+        }
+    });
+};
+
+bot.callbackQuery('owner_auth_list', showAuthorizedChats);
+
 bot.callbackQuery('owner_stats', async (ctx) => {
     if (!isOwnerInPrivateChat(ctx)) {
         await ctx.answerCallbackQuery({ text: 'Menu ini hanya tersedia untuk owner.' });
@@ -90,8 +124,8 @@ bot.callbackQuery('owner_stats', async (ctx) => {
     await ctx.editMessageText(
         `📊 <b>Statistik Bot</b>\n\n` +
         `⏱️ Uptime: ${uptime}\n` +
-        `👥 Pengguna: ${state.uniqueUsers.size}\n` +
-        `🏠 Grup bergabung: ${state.groupJoins}\n` +
+        `👥 Pengguna terdeteksi: ${state.uniqueUsers.size}\n` +
+        `🏠 Grup terdeteksi: ${state.groups.size}\n` +
         `🔐 Chat diizinkan: ${authorizedChats.size}`,
         {
             parse_mode: 'HTML',
@@ -148,9 +182,11 @@ bot.on('message:text', async (ctx, next) => {
     const chatId = Number(chatIdText);
     if (action === 'auth') {
         authorizedChats.add(chatId);
-        await ctx.reply(`✅ Chat <code>${chatId}</code> berhasil diizinkan.`, { parse_mode: 'HTML' });
+        contentStore.saveAuthorizedChat(chatId);
+        await ctx.reply(`✅ Chat <code>${chatId}</code> berhasil diizinkan dan disimpan.`, { parse_mode: 'HTML' });
     } else {
         const removed = authorizedChats.delete(chatId);
+        contentStore.deleteAuthorizedChat(chatId);
         await ctx.reply(
             removed
                 ? `🚫 Izin untuk chat <code>${chatId}</code> berhasil dicabut.`
@@ -176,31 +212,13 @@ const pingOwner = async (botInfo) => {
 };
 
 const registerCommands = async () => {
-    const publicCommands = [
-        { command: 'start', description: 'Mulai bot dan lihat status' },
-        { command: 'menu', description: 'Tampilkan daftar fitur yang tersedia' },
-        { command: 'profile', description: 'Lihat profil Telegram kamu' },
-        { command: 'download', description: 'Download video (diperlukan izin)' },
-        { command: 'rules', description: 'Lihat, edit, atau hapus rules grup' },
-        { command: 'notes', description: 'Lihat, edit, atau hapus notes grup' },
-        { command: 'cancel', description: 'Batalkan proses edit rules atau note' }
-    ];
-
     try {
-        await bot.api.setMyCommands(publicCommands);
+        await bot.api.setMyCommands([]);
         if (ownerIdIsValid) {
-            await bot.api.setMyCommands(
-                [
-                    ...publicCommands,
-                    { command: 'ownermenu', description: 'Buka menu khusus owner' },
-                    { command: 'stats', description: 'Lihat statistik bot' },
-                    { command: 'auth', description: 'Izinkan chat/grup ini' },
-                    { command: 'unauth', description: 'Cabut izin chat/grup ini' }
-                ],
-                { scope: { type: 'chat', chat_id: ownerId } }
-            );
+            await bot.api.setMyCommands([], { scope: { type: 'chat', chat_id: ownerId } });
         }
-        console.log('✅ Bot commands registered successfully');
+        console.log(`✅ Loaded ${authorizedChats.size} authorized chats from local SQLite database`);
+        console.log('✅ Bot command suggestions cleared');
     } catch (error) {
         console.error('❌ Failed to register bot commands:', error);
     }
@@ -229,9 +247,6 @@ bot.on('message:new_chat_members', async (ctx) => {
         );
     }
 
-    if (newMembers.some((member) => !member.is_bot)) {
-        state.incrementGroupJoins();
-    }
 });
 
 const kataKasar = ['kasar1', 'kasar2', 'kasar3'];
