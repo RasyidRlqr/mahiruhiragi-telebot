@@ -13,6 +13,7 @@ if (!botToken || !ownerIdIsValid) {
 const bot = new Bot(botToken || 'KOSONG');
 const commandsPath = path.join(__dirname, 'commands');
 const state = require(path.join(commandsPath, 'state'));
+const contentStore = require(path.join(commandsPath, 'contentStore'));
 const authorizedChats = new Set();
 const pendingOwnerActions = new Map();
 
@@ -180,7 +181,9 @@ const registerCommands = async () => {
         { command: 'menu', description: 'Tampilkan daftar fitur yang tersedia' },
         { command: 'profile', description: 'Lihat profil Telegram kamu' },
         { command: 'download', description: 'Download video (diperlukan izin)' },
-        { command: 'rules', description: 'Lihat peraturan grup' }
+        { command: 'rules', description: 'Lihat, edit, atau hapus rules grup' },
+        { command: 'notes', description: 'Lihat, edit, atau hapus notes grup' },
+        { command: 'cancel', description: 'Batalkan proses edit rules atau note' }
     ];
 
     try {
@@ -205,10 +208,25 @@ const registerCommands = async () => {
 
 bot.on('message:new_chat_members', async (ctx) => {
     const newMembers = ctx.message.new_chat_members;
+    let botJoined = false;
     for (const member of newMembers) {
-        if (member.is_bot) continue;
+        if (member.is_bot) {
+            if (member.id === bot.botInfo.id) botJoined = true;
+            continue;
+        }
         const name = member.first_name || 'Member';
         await ctx.reply(`Halo ${name}! 👋\nSelamat datang di grup. Silakan baca peraturan grup dengan mengetik /rules ya!`);
+    }
+
+    if (botJoined) {
+        const rulesNotSet = !contentStore.getRules(ctx.chat.id);
+        await ctx.reply(
+            '👋 Terima kasih sudah menambahkan saya ke grup!\n' +
+            (rulesNotSet
+                ? '📜 Rules grup belum diatur. Admin dapat mengaturnya dengan /rules edit, lalu kirim daftar rules baru.\n'
+                : '📜 Untuk membaca rules grup, gunakan /rules.\n') +
+            'Gunakan /menu untuk melihat perintah rules dan notes.'
+        );
     }
 
     if (newMembers.some((member) => !member.is_bot)) {
